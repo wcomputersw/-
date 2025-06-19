@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>📋 מערכת ניהול השכרת מחשבים</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>📋 מערכת ניהול השכרת מחשבים</h1>
+
+  <div class="nav">
+    <button onclick="showSection('branches')">סניפים</button>
+    <button onclick="showSection('computers')">מחשבים</button>
+    <button onclick="showSection('recalls')">ריקול</button>
+  </div>
+
+  <!-- סניפים -->
+  <section id="branches" class="section">
+    <h2>סניפים</h2>
+    <form onsubmit="addBranch(event)">
+      <input type="text" placeholder="שם הסניף" id="branchName" required />
+      <input type="text" placeholder="כתובת" id="branchAddress" />
+      <input type="text" placeholder="טלפון" id="branchPhone" />
+      <input type="text" placeholder="טלפון מנהל" id="branchManagerPhone" />
+      <button type="submit">➕ הוסף סניף</button>
+    </form>
+    <ul id="branchList"></ul>
+  </section>
+
+  <!-- מחשבים -->
+  <section id="computers" class="section" style="display:none">
+    <h2>מחשבים</h2>
+    <form onsubmit="addComputer(event)">
+      <input type="text" placeholder="דגם מחשב" id="computerModel" required />
+      <select id="computerBranch" required></select>
+      <button type="submit">➕ הוסף מחשב</button>
+    </form>
+    <ul id="computerList"></ul>
+  </section>
+
+  <!-- ריקול -->
+  <section id="recalls" class="section" style="display:none">
+    <h2>מחשבים בריקול</h2>
+    <ul id="recallList"></ul>
+  </section>
+
+  <script>
+    // בדיקת סיסמה בצד לקוח (למקרה שאין Basic Auth זמין)
+    const PASSWORD = "1234";
+    const entered = sessionStorage.getItem("auth_pass") || prompt("הזן סיסמה לגישה:");
+    if (entered !== PASSWORD) {
+      alert("סיסמה שגויה. נסה שוב מאוחר יותר.");
+      document.body.innerHTML = "<h2>⛔ גישה נדחתה</h2>";
+      throw new Error("Access denied");
+    } else {
+      sessionStorage.setItem("auth_pass", entered);
+    }
+  </script>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
