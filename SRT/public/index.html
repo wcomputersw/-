@@ -24,6 +24,7 @@
       <input type="text" placeholder="טלפון מנהל" id="branchManagerPhone" />
       <button type="submit">➕ הוסף סניף</button>
     </form>
+    <input type="text" id="branchSearchInput" placeholder="🔍 סינון סניפים..." class="search-box" />
     <ul id="branchList"></ul>
   </section>
 
@@ -35,17 +36,18 @@
       <select id="computerBranch" required></select>
       <button type="submit">➕ הוסף מחשב</button>
     </form>
+    <input type="text" id="computerSearchInput" placeholder="🔍 סינון מחשבים..." class="search-box" />
     <ul id="computerList"></ul>
   </section>
 
   <!-- ריקול -->
   <section id="recalls" class="section" style="display:none">
     <h2>מחשבים בריקול</h2>
+    <input type="text" id="recallSearchInput" placeholder="🔍 סינון ריקול..." class="search-box" />
     <ul id="recallList"></ul>
   </section>
 
   <script>
-    // בדיקת סיסמה בצד לקוח (למקרה שאין Basic Auth זמין)
     const PASSWORD = "1234";
     const entered = sessionStorage.getItem("auth_pass") || prompt("הזן סיסמה לגישה:");
     if (entered !== PASSWORD) {
