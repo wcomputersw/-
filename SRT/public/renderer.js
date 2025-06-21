@@ -43,15 +43,18 @@ async function loadBranches() {
     li.innerHTML = `<strong>${branch.name}</strong> (קוד ${branch.code})<br>
       כתובת: ${branch.address || '-'}<br>
       טלפון: ${branch.phone || '-'}, מנהל: ${branch.manager_phone || '-'}`;
+
     const editBtn = document.createElement('button');
     editBtn.textContent = '✏️ ערוך';
     editBtn.onclick = () => openEditBranchModal(branch);
     li.appendChild(document.createElement('br'));
     li.appendChild(editBtn);
+
     const delBtn = document.createElement('button');
     delBtn.textContent = '🗑️ מחק';
     delBtn.onclick = () => deleteBranch(branch.id);
     li.appendChild(delBtn);
+
     list.appendChild(li);
   });
 }
@@ -117,7 +120,6 @@ async function deleteBranch(id) {
     loadComputers();
   }
 }
-
 // --- מחשבים ---
 async function loadBranchOptions() {
   const branches = await fetchJson('/api/branches');
@@ -168,14 +170,17 @@ async function loadComputers() {
     group.forEach(c => {
       const li = document.createElement('li');
       li.innerHTML = `<strong>${c.model}</strong> (מזהה ${c.code})<br>`;
+
       const recallBtn = document.createElement('button');
       recallBtn.textContent = '📦 העבר לריקול';
       recallBtn.onclick = () => recallComputer(c.id);
       li.appendChild(recallBtn);
+
       const deleteBtn = document.createElement('button');
       deleteBtn.textContent = '🗑️ מחק';
       deleteBtn.onclick = () => deleteComputer(c.id);
       li.appendChild(deleteBtn);
+
       const changeBtn = document.createElement('button');
       changeBtn.textContent = '🔄 שנה סניף';
       changeBtn.onclick = () => {
@@ -234,18 +239,19 @@ async function recallComputer(id) {
   loadComputers();
   loadRecalls();
 }
-
 // --- ריקול ---
 async function loadRecalls() {
   const list = $('recallList');
   list.innerHTML = '';
   createSearchInput('recallList', 'recallSearchInput', e => filterList(list, e.target.value));
+
   const recalls = await fetchJson('/api/recalls');
   const branches = await fetchJson('/api/branches');
 
   const headerBtn = document.createElement('button');
   headerBtn.textContent = '↩️ החזר מחשבים מריקול';
   headerBtn.onclick = () => openGroupReturnModal(recalls);
+
   const headerDiv = document.createElement('div');
   headerDiv.style.marginBottom = '15px';
   headerDiv.appendChild(headerBtn);
@@ -254,6 +260,7 @@ async function loadRecalls() {
   recalls.forEach(c => {
     const li = document.createElement('li');
     li.innerHTML = `<strong>${c.model}</strong> (מזהה ${c.code})<br>`;
+
     const select = document.createElement('select');
     branches.forEach(b => {
       const option = document.createElement('option');
@@ -261,6 +268,7 @@ async function loadRecalls() {
       option.textContent = `${b.name} (קוד ${b.code})`;
       select.appendChild(option);
     });
+
     const returnBtn = document.createElement('button');
     returnBtn.textContent = '↩️ החזר';
     returnBtn.onclick = async () => {
@@ -272,13 +280,13 @@ async function loadRecalls() {
       loadComputers();
       loadRecalls();
     };
+
     li.appendChild(select);
     li.appendChild(returnBtn);
     list.appendChild(li);
   });
 }
-
-// --- חלוניות קבוצתיות (עם סינון) ---
+// --- חלוניות קבוצתיות ---
 function openGroupRecallModal(computers) {
   const modal = document.createElement('div');
   modal.className = 'modal';
@@ -292,12 +300,15 @@ function openGroupRecallModal(computers) {
     <button onclick="this.parentNode.remove()">❌ ביטול</button>
   `;
   document.body.appendChild(modal);
-  document.getElementById('recallFilter').oninput = e =>
-    filterList(document.getElementById('recallListModal'), e.target.value);
+  const filterInput = document.getElementById('recallFilter');
+  const list = document.getElementById('recallListModal');
+  filterInput.oninput = () => filterList(list, filterInput.value);
 
   document.getElementById('confirmRecall').onclick = async () => {
-    const selected = Array.from(document.querySelectorAll('#recallListModal input:checked')).map(cb => cb.value);
-    for (const id of selected) await fetch(`/api/computers/${id}/recall`, { method: 'POST' });
+    const selectedIds = Array.from(list.querySelectorAll('input:checked')).map(cb => cb.value);
+    for (const id of selectedIds) {
+      await fetch(`/api/computers/${id}/recall`, { method: 'POST' });
+    }
     modal.remove();
     loadComputers();
     loadRecalls();
@@ -319,8 +330,9 @@ function openGroupTransferModal(computers) {
     <button onclick="this.parentNode.remove()">❌ ביטול</button>
   `;
   document.body.appendChild(modal);
-  document.getElementById('transferFilter').oninput = e =>
-    filterList(document.getElementById('transferList'), e.target.value);
+  const filterInput = document.getElementById('transferFilter');
+  const list = document.getElementById('transferList');
+  filterInput.oninput = () => filterList(list, filterInput.value);
 
   fetchJson('/api/branches').then(branches => {
     const select = document.getElementById('targetBranch');
@@ -333,9 +345,9 @@ function openGroupTransferModal(computers) {
   });
 
   document.getElementById('confirmTransfer').onclick = async () => {
-    const selected = Array.from(document.querySelectorAll('#transferList input:checked')).map(cb => cb.value);
+    const selectedIds = Array.from(list.querySelectorAll('input:checked')).map(cb => cb.value);
     const branchId = document.getElementById('targetBranch').value;
-    for (const id of selected) {
+    for (const id of selectedIds) {
       await fetch(`/api/computers/${id}/return`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -362,8 +374,9 @@ function openGroupReturnModal(computers) {
     <button onclick="this.parentNode.remove()">❌ ביטול</button>
   `;
   document.body.appendChild(modal);
-  document.getElementById('returnFilter').oninput = e =>
-    filterList(document.getElementById('returnList'), e.target.value);
+  const filterInput = document.getElementById('returnFilter');
+  const list = document.getElementById('returnList');
+  filterInput.oninput = () => filterList(list, filterInput.value);
 
   fetchJson('/api/branches').then(branches => {
     const select = document.getElementById('returnTargetBranch');
@@ -376,9 +389,9 @@ function openGroupReturnModal(computers) {
   });
 
   document.getElementById('confirmReturn').onclick = async () => {
-    const selected = Array.from(document.querySelectorAll('#returnList input:checked')).map(cb => cb.value);
+    const selectedIds = Array.from(list.querySelectorAll('input:checked')).map(cb => cb.value);
     const branchId = document.getElementById('returnTargetBranch').value;
-    for (const id of selected) {
+    for (const id of selectedIds) {
       await fetch(`/api/computers/${id}/return`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
