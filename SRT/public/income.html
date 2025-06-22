@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>💰 הכנסות</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>💰 רישום הכנסות</h1>
+
+  <div class="nav">
+    <button onclick="location.href='index.html'">דף ראשי</button>
+    <button onclick="location.href='expenses.html'">הוצאות</button>
+    <button onclick="location.href='summary.html'">סיכום</button>
+    <button onclick="location.href='users.html'">ניהול</button>
+  </div>
+
+  <section class="section">
+    <h2>➕ הוסף הכנסה</h2>
+    <form id="incomeForm" onsubmit="addIncome(event)">
+      <label>תאריך:
+        <input type="date" id="incomeDate" required />
+      </label><br>
+
+      <label>שותף:
+        <select id="incomeUser" required></select>
+      </label><br>
+
+      <label>קטגוריה:
+        <select id="incomeCategory" required></select>
+      </label><br>
+
+      <label>תיאור:
+        <input type="text" id="incomeDescription" placeholder="פרטים נוספים..." />
+      </label><br>
+
+      <label>סכום:
+        <input type="number" id="incomeAmount" required />
+      </label><br>
+
+      <button type="submit">💾 שמור הכנסה</button>
+    </form>
+  </section>
+
+  <section class="section">
+    <h2>📋 רשימת הכנסות</h2>
+    <ul id="incomeList"></ul>
+  </section>
+
+  <script>
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('incomeDate').value = today;
+
+    let allUsers = [];
+    let allCategories = [];
+
+    async function loadUsers() {
+      const res = await fetch('/api/users');
+      allUsers = await res.json();
+      const select = document.getElementById('incomeUser');
+      select.innerHTML = '';
+      allUsers.forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.id;
+        opt.textContent = u.name;
+        select.appendChild(opt);
+      });
+    }
+
+    async function loadCategories() {
+      const res = await fetch('/api/categories');
+      allCategories = await res.json();
+      const select = document.getElementById('incomeCategory');
+      select.innerHTML = '';
+      allCategories.filter(c => c.type === 'income').forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat.name;
+        opt.textContent = cat.name;
+        select.appendChild(opt);
+      });
+    }
+
+    async function addIncome(e) {
+      e.preventDefault();
+      const data = {
+        date: document.getElementById('incomeDate').value,
+        user_id: document.getElementById('incomeUser').value,
+        category: document.getElementById('incomeCategory').value,
+        amount: parseFloat(document.getElementById('incomeAmount').value),
+        description: document.getElementById('incomeDescription').value,
+        quantity: 1
+      };
+
+      await fetch('/api/income', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      e.target.reset();
+      document.getElementById('incomeDate').value = today;
+      loadIncomes();
+    }
+
+    async function loadIncomes() {
+      const list = document.getElementById('incomeList');
+      list.innerHTML = '';
+      const res = await fetch('/api/income');
+      const incomes = await res.json();
+      incomes.forEach(i => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <strong>${i.amount.toLocaleString()} ₪</strong> |
+          ${i.date} |
+          ${getUserName(i.user_id)} |
+          ${i.category} |
+          ${i.description || ''}
+        `;
+
+        const editBtn = document.createElement('button');
+        editBtn.textContent = '✏️';
+        editBtn.onclick = () => openEditModal(i);
+
+        const delBtn = document.createElement('button');
+        delBtn.textContent = '🗑️';
+        delBtn.onclick = async () => {
+          if (confirm('האם למחוק הכנסה זו?')) {
+            await fetch(`/api/income/${i.id}`, { method: 'DELETE' });
+            loadIncomes();
+          }
+        };
+
+        li.appendChild(editBtn);
+        li.appendChild(delBtn);
+        list.appendChild(li);
+      });
+    }
+
+    function getUserName(id) {
+      const user = allUsers.find(u => u.id == id);
+      return user ? user.name : `מס' ${id}`;
+    }
+
+    function openEditModal(entry) {
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.innerHTML = `
+        <h3>✏️ עריכת הכנסה</h3>
+        <label>תאריך: <input type="date" id="editDate" value="${entry.date}"></label><br>
+        <label>שותף:
+          <select id="editUser">${allUsers.map(u => `
+            <option value="${u.id}" ${u.id == entry.user_id ? 'selected' : ''}>${u.name}</option>`).join('')}
+          </select>
+        </label><br>
+        <label>קטגוריה:
+          <select id="editCategory">${allCategories.filter(c => c.type === 'income').map(c => `
+            <option value="${c.name}" ${c.name == entry.category ? 'selected' : ''}>${c.name}</option>`).join('')}
+          </select>
+        </label><br>
+        <label>תיאור: <input type="text" id="editDescription" value="${entry.description || ''}"></label><br>
+        <label>סכום: <input type="number" id="editAmount" value="${entry.amount}"></label><br>
+        <button onclick="saveEdit(${entry.id})">💾 שמור</button>
+        <button onclick="this.parentNode.remove()">❌ ביטול</button>
+      `;
+      document.body.appendChild(modal);
+    }
+
+    async function saveEdit(id) {
+      const data = {
+        date: document.getElementById('editDate').value,
+        user_id: document.getElementById('editUser').value,
+        category: document.getElementById('editCategory').value,
+        quantity: 1,
+        description: document.getElementById('editDescription').value,
+        amount: parseFloat(document.getElementById('editAmount').value),
+      };
+      await fetch(`/api/income/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      document.querySelector('.modal').remove();
+      loadIncomes();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadUsers();
+      loadCategories();
+      loadIncomes();
+    });
+  </script>
+</body>
+</html>

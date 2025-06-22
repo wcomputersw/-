@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>📦 הוצאות</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>📦 רישום הוצאות</h1>
+
+  <div class="nav">
+    <button onclick="location.href='index.html'">דף ראשי</button>
+    <button onclick="location.href='income.html'">הכנסות</button>
+    <button onclick="location.href='summary.html'">סיכום</button>
+    <button onclick="location.href='users.html'">ניהול</button>
+  </div>
+
+  <section class="section">
+    <h2>➕ הוסף הוצאה</h2>
+    <form id="expenseForm" onsubmit="addExpense(event)">
+      <label>תאריך:
+        <input type="date" id="expenseDate" required />
+      </label><br>
+
+      <label>שותף:
+        <select id="expenseUser" required></select>
+      </label><br>
+
+      <label>קטגוריה:
+        <select id="expenseCategory" onchange="handleCategoryChange()" required></select>
+      </label><br>
+
+      <div id="computerDetails" style="display:none;">
+        <label>כמות מחשבים:
+          <select id="computerCount"></select>
+        </label><br>
+        <label>תיאור מחשבים:
+          <input type="text" id="computerDescription" placeholder="למשל: Dell i5, 8GB RAM..." />
+        </label><br>
+      </div>
+
+      <div id="generalDescriptionDiv">
+        <label>📝 תיאור ההוצאה:
+          <input type="text" id="generalDescription" placeholder="למשל: תיקון ציוד, נסיעות..." />
+        </label><br>
+      </div>
+
+      <label>סכום:
+        <input type="number" id="expenseAmount" required />
+      </label><br>
+
+      <button type="submit">💾 שמור הוצאה</button>
+    </form>
+  </section>
+
+  <section class="section">
+    <h2>📋 רשימת הוצאות</h2>
+    <ul id="expenseList"></ul>
+  </section>
+
+  <script>
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('expenseDate').value = today;
+
+    let allUsers = [];
+    let allCategories = [];
+
+    function handleCategoryChange() {
+      const selected = document.getElementById('expenseCategory').value;
+      document.getElementById('computerDetails').style.display =
+        selected === 'buy_computers' ? 'block' : 'none';
+    }
+
+    function populateComputerCount() {
+      const countSelect = document.getElementById('computerCount');
+      countSelect.innerHTML = '';
+      for (let i = 1; i <= 20; i++) {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = i;
+        countSelect.appendChild(opt);
+      }
+    }
+
+    async function loadUsers() {
+      const res = await fetch('/api/users');
+      allUsers = await res.json();
+      const select = document.getElementById('expenseUser');
+      select.innerHTML = '';
+      allUsers.forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.id;
+        opt.textContent = u.name;
+        select.appendChild(opt);
+      });
+    }
+
+    async function loadCategories() {
+      const res = await fetch('/api/categories');
+      allCategories = await res.json();
+      const select = document.getElementById('expenseCategory');
+      select.innerHTML = '';
+
+      allCategories.filter(c => c.type === 'expense').forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat.name;
+        opt.textContent = cat.name === 'buy_computers' ? '🖥️ קניית מחשבים' :
+                          cat.name === 'partner_withdraw' ? '🏦 משיכת שותף' :
+                          cat.name;
+        select.appendChild(opt);
+      });
+
+      handleCategoryChange();
+    }
+
+    async function addExpense(e) {
+      e.preventDefault();
+      const category = document.getElementById('expenseCategory').value;
+      let quantity = 1;
+      let description = '';
+
+      if (category === 'buy_computers') {
+        quantity = parseInt(document.getElementById('computerCount').value);
+        const desc = document.getElementById('computerDescription').value;
+        description = `קניית ${quantity} מחשבים - ${desc}`;
+      } else {
+        description = document.getElementById('generalDescription').value || '';
+      }
+
+      const data = {
+        date: document.getElementById('expenseDate').value,
+        user_id: document.getElementById('expenseUser').value,
+        category,
+        quantity,
+        amount: parseFloat(document.getElementById('expenseAmount').value),
+        description
+      };
+
+      await fetch('/api/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      e.target.reset();
+      document.getElementById('generalDescription').value = '';
+      document.getElementById('computerDetails').style.display = 'none';
+      document.getElementById('expenseDate').value = today;
+      loadExpenses();
+    }
+
+    async function loadExpenses() {
+      const list = document.getElementById('expenseList');
+      list.innerHTML = '';
+      const res = await fetch('/api/expenses');
+      const expenses = await res.json();
+      expenses.forEach(e => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <strong>${e.amount.toLocaleString()} ₪</strong> |
+          ${e.date} |
+          ${getUserName(e.user_id)} |
+          ${e.category} |
+          ${e.description || ''}
+        `;
+
+        const editBtn = document.createElement('button');
+        editBtn.textContent = '✏️';
+        editBtn.onclick = () => openEditModal(e);
+
+        const delBtn = document.createElement('button');
+        delBtn.textContent = '🗑️';
+        delBtn.onclick = async () => {
+          if (confirm('האם למחוק הוצאה זו?')) {
+            await fetch(`/api/expenses/${e.id}`, { method: 'DELETE' });
+            loadExpenses();
+          }
+        };
+
+        li.appendChild(editBtn);
+        li.appendChild(delBtn);
+        list.appendChild(li);
+      });
+    }
+
+    function getUserName(id) {
+      const user = allUsers.find(u => u.id == id);
+      return user ? user.name : `מס' ${id}`;
+    }
+
+    function openEditModal(expense) {
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.innerHTML = `
+        <h3>✏️ עריכת הוצאה</h3>
+        <label>תאריך: <input type="date" id="editDate" value="${expense.date}"></label><br>
+        <label>שותף:
+          <select id="editUser">${allUsers.map(u => `
+            <option value="${u.id}" ${u.id == expense.user_id ? 'selected' : ''}>${u.name}</option>`).join('')}
+          </select>
+        </label><br>
+        <label>קטגוריה:
+          <select id="editCategory">${allCategories.filter(c => c.type === 'expense').map(c => `
+            <option value="${c.name}" ${c.name == expense.category ? 'selected' : ''}>${c.name}</option>`).join('')}
+          </select>
+        </label><br>
+        <label>כמות: <input type="number" id="editQuantity" value="${expense.quantity || 1}"></label><br>
+        <label>תיאור: <input type="text" id="editDescription" value="${expense.description || ''}"></label><br>
+        <label>סכום: <input type="number" id="editAmount" value="${expense.amount}"></label><br>
+        <button onclick="saveEdit(${expense.id})">💾 שמור</button>
+        <button onclick="this.parentNode.remove()">❌ ביטול</button>
+      `;
+      document.body.appendChild(modal);
+    }
+
+    async function saveEdit(id) {
+      const data = {
+        date: document.getElementById('editDate').value,
+        user_id: document.getElementById('editUser').value,
+        category: document.getElementById('editCategory').value,
+        quantity: document.getElementById('editQuantity').value,
+        description: document.getElementById('editDescription').value,
+        amount: parseFloat(document.getElementById('editAmount').value),
+      };
+      await fetch(`/api/expenses/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      document.querySelector('.modal').remove();
+      loadExpenses();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadUsers();
+      loadCategories();
+      populateComputerCount();
+      loadExpenses();
+    });
+  </script>
+</body>
+</html>

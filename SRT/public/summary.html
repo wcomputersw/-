@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>📊 סיכום כספי</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>📊 סיכום כספי כולל</h1>
+
+  <div class="nav">
+    <button onclick="location.href='index.html'">דף ראשי</button>
+    <button onclick="location.href='expenses.html'">הוצאות</button>
+    <button onclick="location.href='income.html'">הכנסות</button>
+    <button onclick="location.href='users.html'">ניהול</button>
+  </div>
+
+  <section class="section">
+    <h2>👥 סיכום לפי שותף</h2>
+    <ul id="partnerSummary"></ul>
+  </section>
+
+  <section class="section">
+    <h2>📊 יתרות שותפים</h2>
+    <table id="balanceTable">
+      <thead>
+        <tr>
+          <th>שותף</th>
+          <th>💸 הוציא מהכיס</th>
+          <th>🏦 משך מהעסק</th>
+          <th>🧾 יתרת חוב (נטו)</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section class="section">
+    <h2>📁 סיכום לפי קטגוריות הוצאה</h2>
+    <ul id="expenseCategorySummary"></ul>
+  </section>
+
+  <section class="section">
+    <h2>📁 סיכום לפי קטגוריות הכנסה</h2>
+    <ul id="incomeCategorySummary"></ul>
+  </section>
+
+  <script>
+    async function fetchAll() {
+      const [usersRes, expensesRes, incomeRes] = await Promise.all([
+        fetch('/api/users'),
+        fetch('/api/expenses'),
+        fetch('/api/income')
+      ]);
+      const users = await usersRes.json();
+      const expenses = await expensesRes.json();
+      const incomes = await incomeRes.json();
+      return { users, expenses, incomes };
+    }
+
+    function buildPartnerSummary(users, expenses, incomes) {
+      const container = document.getElementById('partnerSummary');
+      container.innerHTML = '';
+
+      users.forEach(user => {
+        const userExp = expenses.filter(e => e.user_id == user.id);
+        const userInc = incomes.filter(i => i.user_id == user.id);
+        const totalExp = userExp
+          .filter(e => e.category !== 'partner_withdraw')
+          .reduce((sum, e) => sum + e.amount, 0);
+        const withdrawn = userExp
+          .filter(e => e.category === 'partner_withdraw')
+          .reduce((sum, e) => sum + e.amount, 0);
+        const totalInc = userInc.reduce((sum, i) => sum + i.amount, 0);
+        const net = totalExp - withdrawn;
+
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <strong>👤 ${user.name}</strong><br>
+          💸 הוציא מהכיס: ${totalExp.toLocaleString()} ₪<br>
+          🏦 משך מהעסק: ${withdrawn.toLocaleString()} ₪<br>
+          🧾 העסק חייב לו: ${net.toLocaleString()} ₪<br>
+          💰 הכניס לעסק: ${totalInc.toLocaleString()} ₪
+        `;
+        container.appendChild(li);
+      });
+    }
+
+    function buildBalanceTable(users, expenses) {
+      const tbody = document.querySelector('#balanceTable tbody');
+      tbody.innerHTML = '';
+
+      users.forEach(user => {
+        const userExp = expenses.filter(e => e.user_id == user.id);
+        const totalExp = userExp
+          .filter(e => e.category !== 'partner_withdraw')
+          .reduce((sum, e) => sum + e.amount, 0);
+        const withdrawn = userExp
+          .filter(e => e.category === 'partner_withdraw')
+          .reduce((sum, e) => sum + e.amount, 0);
+        const net = totalExp - withdrawn;
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${user.name}</td>
+          <td>${totalExp.toLocaleString()} ₪</td>
+          <td>${withdrawn.toLocaleString()} ₪</td>
+          <td><strong>${net.toLocaleString()} ₪</strong></td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function buildCategorySummary(data, containerId) {
+      const summary = {};
+      data.forEach(entry => {
+        const key = entry.category || 'לא מוגדר';
+        summary[key] = (summary[key] || 0) + entry.amount;
+      });
+
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+      for (const cat in summary) {
+        const li = document.createElement('li');
+        li.innerHTML = `<strong>${cat}</strong>: ${summary[cat].toLocaleString()} ₪`;
+        container.appendChild(li);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const { users, expenses, incomes } = await fetchAll();
+      buildPartnerSummary(users, expenses, incomes);
+      buildBalanceTable(users, expenses);
+      buildCategorySummary(expenses, 'expenseCategorySummary');
+      buildCategorySummary(incomes, 'incomeCategorySummary');
+    });
+  </script>
+</body>
+</html>

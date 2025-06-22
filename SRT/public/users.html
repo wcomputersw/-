@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>⚙️ ניהול</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>⚙️ ניהול</h1>
+
+  <div class="nav">
+    <button onclick="location.href='index.html'">דף ראשי</button>
+    <button onclick="location.href='expenses.html'">הוצאות</button>
+    <button onclick="location.href='income.html'">הכנסות</button>
+    <button onclick="location.href='summary.html'">סיכום</button>
+  </div>
+
+  <!-- ניהול -->
+  <section class="section">
+    <h2>👤 ניהול שותפים</h2>
+    <form onsubmit="addUser(event)">
+      <input type="text" id="userName" placeholder="שם שותף" required />
+      <button type="submit">➕ הוסף</button>
+    </form>
+    <ul id="userList"></ul>
+  </section>
+
+  <!-- קטגוריות הוצאה -->
+  <section class="section">
+    <h2>📦 קטגוריות הוצאה</h2>
+    <form onsubmit="addCategory(event, 'expense')">
+      <input type="text" id="expenseCategoryInput" placeholder="שם קטגוריה" required />
+      <button type="submit">➕ הוסף</button>
+    </form>
+    <ul id="expenseCategoryList"></ul>
+  </section>
+
+  <!-- קטגוריות הכנסה -->
+  <section class="section">
+    <h2>💰 קטגוריות הכנסה</h2>
+    <form onsubmit="addCategory(event, 'income')">
+      <input type="text" id="incomeCategoryInput" placeholder="שם קטגוריה" required />
+      <button type="submit">➕ הוסף</button>
+    </form>
+    <ul id="incomeCategoryList"></ul>
+  </section>
+
+  <script>
+    async function loadUsers() {
+      const res = await fetch('/api/users');
+      const users = await res.json();
+      const list = document.getElementById('userList');
+      list.innerHTML = '';
+      users.forEach(user => {
+        const li = document.createElement('li');
+        li.textContent = `${user.name} `;
+
+        const editBtn = document.createElement('button');
+        editBtn.textContent = '✏️';
+        editBtn.onclick = () => {
+          const newName = prompt('שנה שם שותף:', user.name);
+          if (newName) updateUser(user.id, newName);
+        };
+
+        const delBtn = document.createElement('button');
+        delBtn.textContent = '🗑️';
+        delBtn.onclick = async () => {
+          if (confirm('האם למחוק שותף זה?')) {
+            await fetch(`/api/users/${user.id}`, { method: 'DELETE' });
+            loadUsers();
+          }
+        };
+
+        li.appendChild(editBtn);
+        li.appendChild(delBtn);
+        list.appendChild(li);
+      });
+    }
+
+    async function updateUser(id, name) {
+      await fetch(`/api/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      loadUsers();
+    }
+
+    async function addUser(e) {
+      e.preventDefault();
+      const name = document.getElementById('userName').value.trim();
+      if (!name) return;
+      await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      e.target.reset();
+      loadUsers();
+    }
+
+    async function loadCategories() {
+      const res = await fetch('/api/categories');
+      const categories = await res.json();
+      createCategoryList(document.getElementById('expenseCategoryList'), 'expense', categories);
+      createCategoryList(document.getElementById('incomeCategoryList'), 'income', categories);
+    }
+
+    function createCategoryList(list, type, data) {
+      list.innerHTML = '';
+      data.filter(cat => cat.type === type).forEach(cat => {
+        const li = document.createElement('li');
+        li.textContent = cat.name + ' ';
+
+        const editBtn = document.createElement('button');
+        editBtn.textContent = '✏️';
+        editBtn.onclick = () => {
+          const newName = prompt('שנה שם קטגוריה:', cat.name);
+          if (newName) updateCategory(cat.id, newName);
+        };
+
+        const delBtn = document.createElement('button');
+        delBtn.textContent = '🗑️';
+        delBtn.onclick = async () => {
+          if (confirm('האם למחוק קטגוריה זו?')) {
+            await fetch(`/api/categories/${cat.id}`, { method: 'DELETE' });
+            loadCategories();
+          }
+        };
+
+        li.appendChild(editBtn);
+        li.appendChild(delBtn);
+        list.appendChild(li);
+      });
+    }
+
+    async function updateCategory(id, name) {
+      await fetch(`/api/categories/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      loadCategories();
+    }
+
+    async function addCategory(e, type) {
+      e.preventDefault();
+      const inputId = type === 'expense' ? 'expenseCategoryInput' : 'incomeCategoryInput';
+      const name = document.getElementById(inputId).value.trim();
+      if (!name) return;
+      await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, name })
+      });
+      e.target.reset();
+      loadCategories();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadUsers();
+      loadCategories();
+    });
+  </script>
+</body>
+</html>

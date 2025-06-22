@@ -12,6 +12,10 @@
     <button onclick="showSection('branches')">סניפים</button>
     <button onclick="showSection('computers')">מחשבים</button>
     <button onclick="showSection('recalls')">ריקול</button>
+    <button onclick="location.href='expenses.html'">הוצאות</button>
+    <button onclick="location.href='income.html'">הכנסות</button>
+    <button onclick="location.href='summary.html'">סיכום</button>
+    <button onclick="location.href='users.html'">ניהול</button>
   </div>
 
   <!-- סניפים -->
@@ -24,7 +28,6 @@
       <input type="text" placeholder="טלפון מנהל" id="branchManagerPhone" />
       <button type="submit">➕ הוסף סניף</button>
     </form>
-    <input type="text" id="branchSearchInput" placeholder="🔍 סינון סניפים..." class="search-box" />
     <ul id="branchList"></ul>
   </section>
 
@@ -36,28 +39,20 @@
       <select id="computerBranch" required></select>
       <button type="submit">➕ הוסף מחשב</button>
     </form>
-    <input type="text" id="computerSearchInput" placeholder="🔍 סינון מחשבים..." class="search-box" />
     <ul id="computerList"></ul>
   </section>
 
   <!-- ריקול -->
   <section id="recalls" class="section" style="display:none">
     <h2>מחשבים בריקול</h2>
-    <input type="text" id="recallSearchInput" placeholder="🔍 סינון ריקול..." class="search-box" />
+    <form onsubmit="addRecall(event)">
+      <select id="recallComputer" required></select>
+      <input type="text" id="recallReason" placeholder="סיבת ריקול" required />
+      <input type="date" id="recallDate" required />
+      <button type="submit">➕ הוסף ריקול</button>
+    </form>
     <ul id="recallList"></ul>
   </section>
-
-  <script>
-    const PASSWORD = "1234";
-    const entered = sessionStorage.getItem("auth_pass") || prompt("הזן סיסמה לגישה:");
-    if (entered !== PASSWORD) {
-      alert("סיסמה שגויה. נסה שוב מאוחר יותר.");
-      document.body.innerHTML = "<h2>⛔ גישה נדחתה</h2>";
-      throw new Error("Access denied");
-    } else {
-      sessionStorage.setItem("auth_pass", entered);
-    }
-  </script>
 
   <script src="renderer.js"></script>
 </body>
