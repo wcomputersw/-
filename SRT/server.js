@@ -2,40 +2,33 @@ const express = require('express');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const bodyParser = require('body-parser');
+const cors = require('cors'); // ✅ הוספת CORS
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// בסיס הנתונים
 const dbPath = path.join(__dirname, 'data.sqlite');
 const db = new sqlite3.Database(dbPath);
 
-// Middleware
+app.use(cors()); // ✅ מאפשר קריאות ממקורות חיצוניים
 app.use(bodyParser.json());
-
-// הגדרת תיקיית Static (מוגנת בסיסמה)
-const PASSWORD = '1234'; // שנה כאן את הסיסמה אם תרצה
-
-app.use((req, res, next) => {
-  if (req.path.startsWith('/api')) return next(); // לא נבדוק API
-  if (req.path.startsWith('/public') || req.path === '/' || req.path === '/index.html') {
-    const auth = req.headers.authorization;
-    if (auth && auth === 'Basic ' + Buffer.from(`admin:${PASSWORD}`).toString('base64')) {
-      return next();
-    }
-    res.setHeader('WWW-Authenticate', 'Basic realm="Protected Area"');
-    return res.status(401).send('Unauthorized');
-  }
-  next();
-});
-
 app.use(express.static(path.join(__dirname, 'public')));
-
-// יצירת טבלאות אם אינן קיימות
+// יצירת טבלאות
 db.serialize(() => {
+  db.run(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT CHECK(type IN ('expense','income')),
+    name TEXT UNIQUE
+  )`);
+
   db.run(`CREATE TABLE IF NOT EXISTS branches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT,
-    code TEXT UNIQUE,
+    code TEXT,
     address TEXT,
     phone TEXT,
     manager_phone TEXT
@@ -44,15 +37,33 @@ db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS computers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     model TEXT,
-    code TEXT UNIQUE,
+    code TEXT,
     branch_id INTEGER,
-    recalled INTEGER DEFAULT 0,
-    FOREIGN KEY(branch_id) REFERENCES branches(id)
+    recalled INTEGER DEFAULT 0
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS expenses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    category TEXT,
+    quantity INTEGER,
+    description TEXT,
+    amount REAL,
+    date TEXT
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS income (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    category TEXT,
+    quantity INTEGER,
+    description TEXT,
+    amount REAL,
+    date TEXT
   )`);
 });
 
-// --- API ---
-// סניפים
+// --- API סניפים ---
 app.get('/api/branches', (req, res) => {
   db.all('SELECT * FROM branches', (err, rows) => {
     if (err) return res.status(500).send(err);
@@ -75,10 +86,9 @@ app.post('/api/branches', (req, res) => {
 
 app.put('/api/branches/:id', (req, res) => {
   const { name, address, phone, manager_phone, code } = req.body;
-  const id = req.params.id;
   db.run(
     `UPDATE branches SET name = ?, address = ?, phone = ?, manager_phone = ?, code = ? WHERE id = ?`,
-    [name, address, phone, manager_phone, code, id],
+    [name, address, phone, manager_phone, code, req.params.id],
     function (err) {
       if (err) return res.status(500).send(err);
       res.sendStatus(200);
@@ -87,22 +97,15 @@ app.put('/api/branches/:id', (req, res) => {
 });
 
 app.delete('/api/branches/:id', (req, res) => {
-  const id = req.params.id;
-  db.run(`DELETE FROM branches WHERE id = ?`, [id], function (err) {
+  db.run(`DELETE FROM branches WHERE id = ?`, [req.params.id], function (err) {
     if (err) return res.status(500).send(err);
     res.sendStatus(200);
   });
 });
 
-// מחשבים
+// --- API מחשבים ---
 app.get('/api/computers', (req, res) => {
-  const sql = `
-    SELECT computers.*, branches.name AS branch_name
-    FROM computers
-    LEFT JOIN branches ON computers.branch_id = branches.id
-    WHERE recalled = 0
-  `;
-  db.all(sql, (err, rows) => {
+  db.all(`SELECT * FROM computers WHERE recalled = 0`, (err, rows) => {
     if (err) return res.status(500).send(err);
     res.json(rows);
   });
@@ -122,8 +125,7 @@ app.post('/api/computers', (req, res) => {
 });
 
 app.delete('/api/computers/:id', (req, res) => {
-  const id = req.params.id;
-  db.run(`DELETE FROM computers WHERE id = ?`, [id], function (err) {
+  db.run(`DELETE FROM computers WHERE id = ?`, [req.params.id], function (err) {
     if (err) return res.status(500).send(err);
     res.sendStatus(200);
   });
@@ -154,7 +156,6 @@ app.post('/api/computers/:id/return', (req, res) => {
   );
 });
 
-// ריקול
 app.get('/api/recalls', (req, res) => {
   db.all(`SELECT * FROM computers WHERE recalled = 1`, (err, rows) => {
     if (err) return res.status(500).send(err);
@@ -162,7 +163,194 @@ app.get('/api/recalls', (req, res) => {
   });
 });
 
-// הפעלת שרת
+// --- API שותפים ---
+app.get('/api/users', (req, res) => {
+  db.all('SELECT * FROM users', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post('/api/users', (req, res) => {
+  const { name } = req.body;
+  db.run('INSERT INTO users (name) VALUES (?)', [name], function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ id: this.lastID });
+  });
+});
+
+app.put('/api/users/:id', (req, res) => {
+  const { name } = req.body;
+  db.run('UPDATE users SET name = ? WHERE id = ?', [name, req.params.id], err => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.sendStatus(200);
+  });
+});
+
+app.delete('/api/users/:id', (req, res) => {
+  db.run('DELETE FROM users WHERE id = ?', [req.params.id], err => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.sendStatus(200);
+  });
+});
+
+// --- API קטגוריות ---
+app.get('/api/categories', (req, res) => {
+  db.all('SELECT * FROM categories', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post('/api/categories', (req, res) => {
+  const { type, name } = req.body;
+  db.run('INSERT INTO categories (type, name) VALUES (?, ?)', [type, name], function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ id: this.lastID });
+  });
+});
+
+app.put('/api/categories/:id', (req, res) => {
+  const { name } = req.body;
+  db.run('UPDATE categories SET name = ? WHERE id = ?', [name, req.params.id], err => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.sendStatus(200);
+  });
+});
+
+app.delete('/api/categories/:id', (req, res) => {
+  db.run('DELETE FROM categories WHERE id = ?', [req.params.id], err => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.sendStatus(200);
+  });
+});
+
+// --- API הוצאות ---
+app.get('/api/expenses', (req, res) => {
+  db.all('SELECT * FROM expenses ORDER BY date DESC', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post('/api/expenses', (req, res) => {
+  const { user_id, category, quantity, description, amount, date } = req.body;
+  db.run(
+    'INSERT INTO expenses (user_id, category, quantity, description, amount, date) VALUES (?, ?, ?, ?, ?, ?)',
+    [user_id, category, quantity, description, amount, date],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID });
+    }
+  );
+});
+
+app.put('/api/expenses/:id', (req, res) => {
+  const { user_id, category, quantity, description, amount, date } = req.body;
+  db.run(
+    'UPDATE expenses SET user_id = ?, category = ?, quantity = ?, description = ?, amount = ?, date = ? WHERE id = ?',
+    [user_id, category, quantity, description, amount, date, req.params.id],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.sendStatus(200);
+    }
+  );
+});
+
+app.delete('/api/expenses/:id', (req, res) => {
+  db.run('DELETE FROM expenses WHERE id = ?', [req.params.id], err => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.sendStatus(200);
+  });
+});
+
+// --- API הכנסות ---
+app.get('/api/income', (req, res) => {
+  db.all('SELECT * FROM income ORDER BY date DESC', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post('/api/income', (req, res) => {
+  const { user_id, category, quantity, description, amount, date } = req.body;
+  db.run(
+    'INSERT INTO income (user_id, category, quantity, description, amount, date) VALUES (?, ?, ?, ?, ?, ?)',
+    [user_id, category, quantity, description, amount, date],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID });
+    }
+  );
+});
+
+app.put('/api/income/:id', (req, res) => {
+  const { user_id, category, quantity, description, amount, date } = req.body;
+  db.run(
+    'UPDATE income SET user_id = ?, category = ?, quantity = ?, description = ?, amount = ?, date = ? WHERE id = ?',
+    [user_id, category, quantity, description, amount, date, req.params.id],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.sendStatus(200);
+    }
+  );
+});
+
+app.delete('/api/income/:id', (req, res) => {
+  db.run('DELETE FROM income WHERE id = ?', [req.params.id], err => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.sendStatus(200);
+  });
+});
+
+// --- API סיכום לפי שותפים ---
+app.get('/api/summary', (req, res) => {
+  const summary = { users: {}, total: { expenses: 0, income: 0 } };
+
+  db.all('SELECT * FROM users', (err, users) => {
+    if (err) return res.status(500).json({ error: err.message });
+
+    users.forEach(u => {
+      summary.users[u.id] = {
+        name: u.name,
+        expenses_from_pocket: 0,
+        withdrawn: 0,
+        income: 0
+      };
+    });
+
+    db.all('SELECT * FROM expenses', (err2, exps) => {
+      if (err2) return res.status(500).json({ error: err2.message });
+
+      exps.forEach(e => {
+        if (summary.users[e.user_id]) {
+          if (e.category === 'partner_withdraw') {
+            summary.users[e.user_id].withdrawn += e.amount;
+          } else {
+            summary.users[e.user_id].expenses_from_pocket += e.amount;
+            summary.total.expenses += e.amount;
+          }
+        }
+      });
+
+      db.all('SELECT user_id, amount FROM income', (err3, incs) => {
+        if (err3) return res.status(500).json({ error: err3.message });
+
+        incs.forEach(i => {
+          if (summary.users[i.user_id]) {
+            summary.users[i.user_id].income += i.amount;
+            summary.total.income += i.amount;
+          }
+        });
+
+        res.json(summary);
+      });
+    });
+  });
+});
+
+// --- הפעלת השרת ---
 app.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);
 });
+
