@@ -8,20 +8,32 @@
 <body>
   <h1>🔐 התחברות למערכת</h1>
   <form onsubmit="login(event)">
-    <label>סיסמה: <input type="password" id="password" required /></label>
+    <label>שם משתמש:
+      <input type="text" id="username" required />
+    </label><br>
+    <label>סיסמה:
+      <input type="password" id="password" required />
+    </label><br>
     <button type="submit">➡️ כניסה</button>
   </form>
   <p id="error" style="color:red;"></p>
 
   <script>
-    function login(e) {
+    async function login(e) {
       e.preventDefault();
-      const pass = document.getElementById('password').value;
-      if (pass === '0892') { // שנה כאן את הסיסמה כרצונך
-        localStorage.setItem('authenticated', 'yes');
-        location.href = 'index.html';
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      if (res.ok) {
+        location.href = '/';
       } else {
-        document.getElementById('error').textContent = '❌ סיסמה שגויה';
+        document.getElementById('error').textContent = '❌ שם משתמש או סיסמה שגויים';
       }
     }
   </script>
