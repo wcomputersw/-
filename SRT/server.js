@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 10000;
 
 // 🔐 רשימת משתמשים מורשים (שנה לפי הצורך)
 const USERS = [
-  { username: 'admin', password: 'WEIL0892' },
+  { username: 'ווייל', password: 'ווייל0892' },
   { username: 'david', password: '123456' },
   { username: 'lea', password: 'abc123' }
 ];
