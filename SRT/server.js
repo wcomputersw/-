@@ -2,17 +2,18 @@ const express = require('express');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const bodyParser = require('body-parser');
-const cors = require('cors'); // ✅ הוספת CORS
+const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const dbPath = path.join(__dirname, 'data.sqlite');
 const db = new sqlite3.Database(dbPath);
 
-app.use(cors()); // ✅ מאפשר קריאות ממקורות חיצוניים
+app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
-// יצירת טבלאות
+
+// --- יצירת טבלאות ---
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -120,6 +121,18 @@ app.post('/api/computers', (req, res) => {
     function (err) {
       if (err) return res.status(500).send(err);
       res.json({ id: this.lastID, code });
+    }
+  );
+});
+
+app.put('/api/computers/:id', (req, res) => {
+  const { model, code } = req.body;
+  db.run(
+    `UPDATE computers SET model = ?, code = ? WHERE id = ?`,
+    [model, code, req.params.id],
+    function (err) {
+      if (err) return res.status(500).send(err);
+      res.sendStatus(200);
     }
   );
 });
@@ -303,7 +316,7 @@ app.delete('/api/income/:id', (req, res) => {
   });
 });
 
-// --- API סיכום לפי שותפים ---
+// --- סיכום שותפים ---
 app.get('/api/summary', (req, res) => {
   const summary = { users: {}, total: { expenses: 0, income: 0 } };
 
@@ -349,8 +362,7 @@ app.get('/api/summary', (req, res) => {
   });
 });
 
-// --- הפעלת השרת ---
+// --- הרצת השרת ---
 app.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);
 });
-
