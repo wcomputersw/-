@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>🔐 התחברות</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>🔐 התחברות למערכת</h1>
+  <form onsubmit="login(event)">
+    <label>סיסמה: <input type="password" id="password" required /></label>
+    <button type="submit">➡️ כניסה</button>
+  </form>
+  <p id="error" style="color:red;"></p>
+
+  <script>
+    function login(e) {
+      e.preventDefault();
+      const pass = document.getElementById('password').value;
+      if (pass === '0892') { // שנה כאן את הסיסמה כרצונך
+        localStorage.setItem('authenticated', 'yes');
+        location.href = 'index.html';
+      } else {
+        document.getElementById('error').textContent = '❌ סיסמה שגויה';
+      }
+    }
+  </script>
+</body>
+</html>
