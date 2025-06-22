@@ -5,18 +5,22 @@ const bodyParser = require('body-parser');
 const session = require('express-session');
 const cors = require('cors');
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// 🔐 רשימת משתמשים מורשים
+// הפורט ש־Render דורש – אל תשנה!
+const PORT = process.env.PORT || 10000;
+
+// 🔐 רשימת משתמשים מורשים (שנה לפי הצורך)
 const USERS = [
-  { username: 'admin', password: 'WEIL0892@' },
-  { username: 'lea', password: 'abc123@' }
+  { username: 'admin', password: 'WEIL0892' },
+  { username: 'david', password: '123456' },
+  { username: 'lea', password: 'abc123' }
 ];
 
-// 📂 הגדרות בסיס
+// 📁 קובץ מסד נתונים
 const dbPath = path.join(__dirname, 'data.sqlite');
 const db = new sqlite3.Database(dbPath);
 
+// 📦 הגדרות כלליות
 app.use(cors());
 app.use(bodyParser.json());
 
@@ -26,7 +30,7 @@ app.use(session({
   saveUninitialized: false
 }));
 
-// 🔒 הגנה על כל הדפים
+// 🔐 הגנה על הדפים – מונעת גישה למי שלא התחבר
 app.use((req, res, next) => {
   if (
     req.path === '/login.html' ||
@@ -43,9 +47,10 @@ app.use((req, res, next) => {
   next();
 });
 
+// 🗂️ שירות קבצים סטטיים (כולל index.html)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 🔐 התחברות עם שם משתמש + סיסמה
+// 🧾 התחברות עם שם משתמש וסיסמה
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   const user = USERS.find(u => u.username === username && u.password === password);
