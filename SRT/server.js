@@ -2,16 +2,62 @@ const express = require('express');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const bodyParser = require('body-parser');
+const session = require('express-session');
 const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// 🔐 רשימת משתמשים מורשים
+const USERS = [
+  { username: 'admin', password: 'WEIL0892' },
+  { username: 'david', password: '123456' },
+  { username: 'lea', password: 'abc123' }
+];
+
+// 📂 הגדרות בסיס
 const dbPath = path.join(__dirname, 'data.sqlite');
 const db = new sqlite3.Database(dbPath);
 
 app.use(cors());
 app.use(bodyParser.json());
+
+app.use(session({
+  secret: 'SOME_RANDOM_SECRET_KEY',
+  resave: false,
+  saveUninitialized: false
+}));
+
+// 🔒 הגנה על כל הדפים
+app.use((req, res, next) => {
+  if (
+    req.path === '/login.html' ||
+    req.path === '/api/login' ||
+    req.path.startsWith('/public') ||
+    req.path.endsWith('.css') ||
+    req.path.endsWith('.js')
+  ) {
+    return next();
+  }
+  if (!req.session.authenticated) {
+    return res.redirect('/login.html');
+  }
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
+
+// 🔐 התחברות עם שם משתמש + סיסמה
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+  const user = USERS.find(u => u.username === username && u.password === password);
+  if (user) {
+    req.session.authenticated = true;
+    req.session.user = user.username;
+    res.json({ success: true });
+  } else {
+    res.status(401).json({ error: 'שם משתמש או סיסמה שגויים' });
+  }
+});
 
 // --- יצירת טבלאות ---
 db.serialize(() => {
