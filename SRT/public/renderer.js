@@ -12,12 +12,12 @@ function showSection(id) {
   if (id === 'recalls') loadRecalls();
 }
 
-// --- פונקציית סינון אוניברסלית ---
+// --- כלי עזר ---
 function createSearchInput(containerId, inputId, onInput) {
   if (document.getElementById(inputId)) return;
   const input = document.createElement('input');
   input.type = 'text';
-  input.placeholder = '🔍 סינון...';
+  input.placeholder = '🔍 סינון.';
   input.id = inputId;
   input.className = 'search-box';
   input.oninput = onInput;
@@ -32,17 +32,24 @@ function filterList(container, query) {
   });
 }
 
-// --- סניפים ---
+async function fetchJson(url) {
+  const res = await fetch(url);
+  return await res.json();
+}
 async function loadBranches() {
   const list = $('branchList');
   list.innerHTML = '';
   createSearchInput('branchList', 'branchSearchInput', e => filterList(list, e.target.value));
   const branches = await fetchJson('/api/branches');
+  const computers = await fetchJson('/api/computers');
+
   branches.forEach(branch => {
+    const count = computers.filter(c => c.branch_id === branch.id).length;
     const li = document.createElement('li');
     li.innerHTML = `<strong>${branch.name}</strong> (קוד ${branch.code})<br>
       כתובת: ${branch.address || '-'}<br>
-      טלפון: ${branch.phone || '-'}, מנהל: ${branch.manager_phone || '-'}`;
+      טלפון: ${branch.phone || '-'}, מנהל: ${branch.manager_phone || '-'}<br>
+      🖥️ מספר מחשבים: ${count}`;
 
     const editBtn = document.createElement('button');
     editBtn.textContent = '✏️ ערוך';
@@ -120,7 +127,6 @@ async function deleteBranch(id) {
     loadComputers();
   }
 }
-// --- מחשבים ---
 async function loadBranchOptions() {
   const branches = await fetchJson('/api/branches');
   const select = $('computerBranch');
@@ -142,7 +148,7 @@ async function loadComputers() {
   const grouped = {};
 
   computers.forEach(c => {
-    const key = c.branch_name || 'ללא סניף';
+    const key = branches.find(b => b.id === c.branch_id)?.name || 'ללא סניף';
     if (!grouped[key]) grouped[key] = [];
     grouped[key].push(c);
   });
@@ -207,6 +213,23 @@ async function loadComputers() {
         li.appendChild(saveBtn);
       };
       li.appendChild(changeBtn);
+
+      const editBtn = document.createElement('button');
+      editBtn.textContent = '✏️ ערוך';
+      editBtn.onclick = () => {
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `
+          <h3>עריכת מחשב</h3>
+          <label>דגם: <input id="editModel" value="${c.model}"></label><br>
+          <label>מזהה: <input id="editCode" value="${c.code}"></label><br>
+          <button onclick="saveComputerEdit(${c.id})">💾 שמור</button>
+          <button onclick="this.parentNode.remove()">❌ ביטול</button>
+        `;
+        document.body.appendChild(modal);
+      };
+      li.appendChild(editBtn);
+
       ul.appendChild(li);
     });
     groupWrapper.appendChild(ul);
@@ -239,7 +262,18 @@ async function recallComputer(id) {
   loadComputers();
   loadRecalls();
 }
-// --- ריקול ---
+
+async function saveComputerEdit(id) {
+  const model = document.getElementById('editModel').value;
+  const code = document.getElementById('editCode').value;
+  await fetch(`/api/computers/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, code })
+  });
+  document.querySelector('.modal')?.remove();
+  loadComputers();
+}
 async function loadRecalls() {
   const list = $('recallList');
   list.innerHTML = '';
@@ -286,7 +320,8 @@ async function loadRecalls() {
     list.appendChild(li);
   });
 }
-// --- חלוניות קבוצתיות ---
+
+// --- חלונית ריקול קבוצתי ---
 function openGroupRecallModal(computers) {
   const modal = document.createElement('div');
   modal.className = 'modal';
@@ -315,6 +350,7 @@ function openGroupRecallModal(computers) {
   };
 }
 
+// --- חלונית העברה קבוצתית ---
 function openGroupTransferModal(computers) {
   const modal = document.createElement('div');
   modal.className = 'modal';
@@ -359,6 +395,7 @@ function openGroupTransferModal(computers) {
   };
 }
 
+// --- חלונית החזרה מריקול ---
 function openGroupReturnModal(computers) {
   const modal = document.createElement('div');
   modal.className = 'modal';
@@ -402,11 +439,4 @@ function openGroupReturnModal(computers) {
     loadRecalls();
     loadComputers();
   };
-}
-
-// --- כלי עזר ---
-async function fetchJson(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`שגיאה בפניה אל ${url}`);
-  return await res.json();
 }
