@@ -9,9 +9,8 @@ const PORT = process.env.PORT || 3000;
 
 // 🔐 רשימת משתמשים מורשים
 const USERS = [
-  { username: 'admin', password: 'WEIL0892' },
-  { username: 'david', password: '123456' },
-  { username: 'lea', password: 'abc123' }
+  { username: 'admin', password: 'WEIL0892@' },
+  { username: 'lea', password: 'abc123@' }
 ];
 
 // 📂 הגדרות בסיס
