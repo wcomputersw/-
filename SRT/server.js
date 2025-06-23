@@ -17,7 +17,7 @@ const USERS = [
 ];
 
 // 📁 קובץ מסד נתונים
-const dbPath = path.join(__dirname, 'data.sqlite');
+const dbPath = '/data/data.sqlite';
 const db = new sqlite3.Database(dbPath);
 
 // 📦 הגדרות כלליות
