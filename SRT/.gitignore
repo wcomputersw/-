@@ -1,0 +1,17 @@
+# קובץ מסד נתונים - לא נרצה שיעלה ל-GitHub
+data.sqlite
+
+# תיקיות Node.js
+node_modules/
+
+# קבצי לוג או שגיאות
+npm-debug.log
+*.log
+
+# קבצי מערכת
+.DS_Store
+Thumbs.db
+
+# קבצי גיבוי זמניים
+*.bak
+*.tmp
